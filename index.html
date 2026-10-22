@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Venue to DXF</title>
+<link rel="icon" type="image/png" href="img/favicon.png">
+<style>
+  /* Creative Day palette: black wordmark, blue + green rule */
+  :root {
+    --cd-blue: #189ad6; --cd-green: #c2db6f;
+    --bg: #f4f6f7; --panel: #ffffff; --ink: #111111; --muted: #62676b; --line: #e0e4e7; --soft: #eef2f4;
+    --accent: #1489c2; --accent-ink: #ffffff; --ok: #5a7d14; --warn: #a8670a; --err: #b3261e;
+    --track: #e6eaed; --sel: #189ad6; --hover: #8fbf2a; --crop: #6f9a1c; --erase: #b3261e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #111315; --panel: #1b1e21; --ink: #eceff1; --muted: #9aa1a6; --line: #30353a; --soft: #24282c;
+      --accent: #189ad6; --track: #2a2f33; --ok: #c2db6f; --warn: #e0a640; --err: #f07167; }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  /* header: Creative Day + app name on the left, file and maker credit on the right, one fixed-height row */
+  header { display: flex; align-items: center; gap: 18px; height: 64px; padding: 0 20px; background: var(--panel); position: relative; }
+  header::after { content: ""; position: absolute; left: 0; right: 0; bottom: -4px; height: 4px; background: linear-gradient(90deg, var(--cd-blue) 0 73%, var(--cd-green) 73% 100%); }
+  header .cd { display: block; flex: none; }
+  header .cd img { height: 28px; width: auto; display: block; }
+  header h1 { font-size: 15px; margin: 0; padding-left: 18px; border-left: 1px solid var(--line); text-transform: uppercase; letter-spacing: .08em; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  header .right { margin-left: auto; display: flex; gap: 18px; align-items: center; flex: none; }
+  header .file { display: flex; gap: 10px; align-items: center; font-size: 13px; color: var(--muted); }
+  header .by { display: flex; flex-direction: column; align-items: center; gap: 3px; padding-left: 18px; border-left: 1px solid var(--line); }
+  header .by span { font-size: 9px; line-height: 1; text-transform: uppercase; letter-spacing: .14em; color: var(--muted); white-space: nowrap; }
+  header .lr { height: 34px; width: auto; display: block; }
+  @media (max-width: 760px) { header h1, header #fname { display: none; } }
+  main { padding: 20px 16px 16px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; margin-bottom: 16px; max-width: 1400px; margin-inline: auto; }
+  .card h2 { font-size: 15px; margin: 0 0 12px; }
+  /* home: one centred column, vertically centred under the header */
+  body:has(> main > .home:not(.hidden)) { min-height: 100vh; display: flex; flex-direction: column; }
+  main:has(> .home:not(.hidden)) { flex: 1; display: flex; flex-direction: column; }
+  .home { flex: 1; width: 100%; max-width: 620px; margin: 0 auto; display: flex; flex-direction: column; justify-content: center; padding: 24px 0 40px; text-align: center; }
+  .home h2 { font-size: 26px; line-height: 1.2; margin: 0 0 8px; letter-spacing: -.01em; }
+  .home .lede { color: var(--muted); font-size: 15px; margin: 0 0 28px; }
+  .drop { display: block; background: var(--panel); border: 2px dashed var(--line); border-radius: 16px; padding: 44px 28px 38px; color: var(--muted); cursor: pointer; transition: border-color .15s, background-color .15s; }
+  .drop:hover, .drop.over { border-color: var(--cd-blue); background: color-mix(in srgb, var(--cd-blue) 5%, var(--panel)); }
+  .drop .btn { pointer-events: none; margin-bottom: 12px; }
+  .drop .or { font-size: 14px; }
+  .drop .hint { margin-top: 18px; }
+  .home #upmsg { text-align: left; margin-top: 12px; }
+  .drop.busy { pointer-events: none; opacity: .55; }
+  .upprog { margin-top: 18px; text-align: left; }
+  .upprog .row { justify-content: space-between; font-size: 14px; margin-bottom: 6px; }
+  .upprog .fn { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  ol.how { list-style: none; padding: 0; margin: 30px 0 0; display: flex; justify-content: center; gap: 10px 28px; flex-wrap: wrap; font-size: 14px; color: var(--muted); }
+  ol.how li { display: flex; align-items: center; gap: 8px; }
+  ol.how b { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; color: #fff; background: var(--cd-blue); }
+  ol.how li:last-child b { background: var(--cd-green); color: #111; }
+  button.primary:hover, .btn.primary:hover { background: var(--cd-blue); border-color: var(--cd-blue); }
+  button, .btn { font: inherit; font-size: 14px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 7px; padding: 6px 12px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+  button:hover { border-color: var(--muted); }
+  button.primary, .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; padding: 9px 18px; font-size: 15px; }
+  button.on { border-color: var(--accent); color: var(--accent); font-weight: 600; box-shadow: inset 0 0 0 1px var(--accent); }
+  button:disabled { opacity: .5; cursor: default; }
+  button.link { border: 0; background: none; color: var(--muted); padding: 2px 4px; text-decoration: underline; font-size: 13px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+  /* workspace: big plan + side panel */
+  .work { display: grid; grid-template-columns: minmax(0, 1fr) clamp(280px, 26vw, 360px); gap: 12px; height: calc(100vh - 104px); min-height: 520px; }
+  @media (max-width: 960px) { .work { grid-template-columns: 1fr; height: auto; } .viewer { height: 70vh; } }
+  .stage { display: flex; flex-direction: column; min-height: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .toolbar { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; padding: 8px; border-bottom: 1px solid var(--line); }
+  .toolbar .sep { flex: 1; }
+  .toolbar .grp { display: inline-flex; gap: 4px; align-items: center; padding-right: 8px; margin-right: 4px; border-right: 1px solid var(--line); }
+  .toolbar .grp:last-child { border-right: 0; }
+  .zoomv { font-variant-numeric: tabular-nums; font-size: 13px; color: var(--muted); min-width: 44px; text-align: center; }
+  .hintbar { font-size: 13px; line-height: 18px; color: var(--muted); padding: 6px 10px; border-bottom: 1px solid var(--line); background: var(--soft);
+    height: calc(2 * 18px + 12px); flex: none; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }   /* fixed height so the plan never jumps */
+  .viewer { flex: 1; overflow: auto; background: #fff; position: relative; min-height: 0; display: flex; }
+  .viewer.pan { cursor: grab; } .viewer.panning { cursor: grabbing; }
+  .viewer.pick .plan { cursor: pointer; } .viewer.box .plan { cursor: crosshair; }
+  .viewer.panning .plan { cursor: grabbing; }
+  .plan { position: relative; width: 100%; user-select: none; flex: none; margin: auto; }   /* auto margins centre it while it is smaller than the viewer */
+  .plan img { display: block; width: 100%; height: auto; -webkit-user-drag: none; }
+  .plan svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+  .panel { display: flex; flex-direction: column; min-height: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .panel .scroll { flex: 1; overflow: auto; padding: 12px 14px; }
+  .panel .foot { border-top: 1px solid var(--line); padding: 12px 14px; }
+  h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 14px 0 6px; display: flex; align-items: center; gap: 8px; }
+  h3 .count { margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 400; }
+  .search { width: 100%; font: inherit; font-size: 14px; padding: 6px 9px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); color: var(--ink); margin-bottom: 6px; }
+  .list { border: 1px solid var(--line); border-radius: 8px; max-height: 32vh; overflow: auto; }
+  .list label { display: flex; align-items: center; gap: 9px; padding: 7px 9px; font-size: 14px; cursor: pointer; border-bottom: 1px solid var(--line); }
+  .list label:last-child { border-bottom: 0; }
+  .list label:hover { background: var(--soft); }
+  .list label.sel { background: color-mix(in srgb, var(--sel) 12%, transparent); }
+  .list input { width: 17px; height: 17px; accent-color: var(--sel); flex: none; }
+  .list .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .list .n { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 13px; }
+  .sw { width: 34px; height: 16px; flex: none; display: grid; align-items: center; background: #fff; border-radius: 3px; border: 1px solid var(--line); }
+  .sw i { display: block; margin: 0 3px; }
+  .chk { display: flex; gap: 8px; align-items: center; font-size: 14px; margin: 8px 0; cursor: pointer; }
+  .status { font-size: 13px; margin: 3px 0; color: var(--muted); }
+  .status.set { color: var(--ok); }
+  .selsum { font-size: 14px; padding: 8px 10px; border-radius: 7px; background: var(--soft); display: flex; gap: 8px; align-items: center; }
+  .selsum b { color: var(--sel); }
+  .msg { padding: 9px 12px; border-radius: 7px; font-size: 14px; margin: 8px 0; border: 1px solid var(--line); }
+  .msg.warn { border-color: var(--warn); color: var(--warn); } .msg.err { border-color: var(--err); color: var(--err); }
+  .msg.ok { border-color: var(--ok); color: var(--ok); }
+  .verify { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 16px; padding: 14px 18px; border-radius: 10px;
+    border: 2px solid var(--warn); border-left-width: 8px; background: color-mix(in srgb, var(--warn) 12%, var(--panel)); color: var(--warn); }
+  .verify svg { width: 26px; height: 26px; flex: none; }
+  .verify strong { font-size: 18px; letter-spacing: .18em; font-weight: 800; }
+
+  .bar { height: 14px; background: var(--track); border-radius: 7px; overflow: hidden; }
+  .bar > div { height: 100%; width: 0; background: linear-gradient(90deg, var(--cd-blue) 70%, var(--cd-green)); border-radius: 7px; transition: width .35s ease; }
+  .pct { font-variant-numeric: tabular-nums; font-weight: 600; }
+  ol.steps { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 4px; font-size: 14px; }
+  ol.steps li { color: var(--muted); display: flex; gap: 8px; align-items: center; }
+  ol.steps li::before { content: ""; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--line); flex: none; }
+  ol.steps li.done { color: var(--ink); } ol.steps li.done::before { background: var(--cd-green); border-color: var(--cd-green); }
+  ol.steps li.now { color: var(--ink); font-weight: 600; } ol.steps li.now::before { border-color: var(--accent); animation: pulse 1s infinite; }
+  @keyframes pulse { 50% { background: var(--accent); } }
+  /* export progress and result float over the workspace, so the plan stays where it was */
+  .overlay { position: fixed; inset: 0; z-index: 10; background: rgba(10, 12, 14, .5); display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .sheet { position: relative; width: 100%; max-width: 980px; max-height: calc(100vh - 48px); overflow: auto; background: var(--panel); border-radius: 12px; box-shadow: 0 20px 60px rgba(0, 0, 0, .35); }
+  .sheet .card { border: 0; margin: 0; max-width: none; padding: 22px 24px; }
+  .sheet .x { position: absolute; top: 12px; right: 12px; z-index: 1; width: 32px; height: 32px; justify-content: center; padding: 0; font-size: 18px; line-height: 1; }
+  .result img { display: block; width: 100%; max-height: 55vh; object-fit: contain; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+  button.link:disabled { text-decoration: none; }
+  .hint { font-size: 13px; color: var(--muted); margin: 4px 0; }
+  .hint.sub { margin: -2px 0 8px; font-size: 12.5px; line-height: 1.4; }
+  ul.next { margin: 6px 0 0; padding-left: 18px; font-size: 14px; }
+  code { font-size: 12px; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <picture class="cd"><source srcset="img/cd-logo-dark.png" media="(prefers-color-scheme: dark)"><img src="img/cd-logo.png" alt="Creative Day Technologies"></picture>
+  <h1>Venue PDF → Vectorworks DXF</h1>
+  <div class="right">
+    <span class="file hidden" id="filebar"><span id="fname"></span><button id="change">Upload another PDF</button></span>
+    <div class="by"><span>Created by</span><picture><source srcset="img/lr-mark.png" media="(prefers-color-scheme: dark)"><img class="lr" src="img/lr-mark-light.png" alt="LR"></picture></div>
+  </div>
+</header>
+<main>
+  <section class="home" id="s1">
+    <h2>Pull the linework out of a venue PDF</h2>
+    <p class="lede">Drop in a CAD PDF, pick the layers or line styles you want, and get a clean DXF for Vectorworks.</p>
+    <label class="drop" id="drop">
+      <input type="file" id="pdf" accept="application/pdf,.pdf" hidden>
+      <span class="btn primary">Choose a PDF</span>
+      <div class="or">or drag it here</div>
+      <div class="hint">Needs a vector PDF from CAD or Vectorworks. Scans and photos won’t work because there’s no vector data.</div>
+    </label>
+    <div id="upmsg"></div>
+    <ol class="how"><li><b>1</b>Upload the PDF</li><li><b>2</b>Pick your lines</li><li><b>3</b>Export the DXF</li></ol>
+  </section>
+
+  <section class="work hidden" id="s2">
+    <div class="stage">
+      <div class="toolbar">
+        <span class="grp"><button data-tool="pick" title="Click a line to grab its whole layer, or its line style if there are no layers. Drag to move around (P)">Select</button><button data-tool="pan" title="Drag to move around (H, or hold Space)">Pan</button></span>
+        <span class="grp"><button data-tool="crop" title="Draw a box around what you want to keep (C)">Crop</button><button data-tool="erase" title="Draw a box over stuff you don’t want (E)">Erase</button></span>
+        <span class="grp"><label class="chk" style="margin:0" title="Fade out everything you haven’t picked"><input type="checkbox" id="dim"> Dim the rest</label></span>
+        <span class="sep"></span>
+        <span class="grp"><button id="zout" title="Zoom out (−)">−</button><span class="zoomv" id="zoomv">100%</span><button id="zin" title="Zoom in (+)">+</button><button id="zfit" title="Fit the whole sheet (0)">Fit</button></span>
+      </div>
+      <div class="hintbar" id="hint"></div>
+      <div class="viewer" id="viewer"><div class="plan" id="plan"><img id="preview" alt="Floor plan preview" draggable="false"><svg id="marks"></svg></div></div>
+    </div>
+    <aside class="panel">
+      <div class="scroll">
+        <div class="selsum" id="selsum"></div>
+        <div id="layerbox">
+          <h3>PDF layers <span class="count" id="lcount"></span></h3>
+          <p class="hint sub">The layers saved in the PDF. Hover to see them on the plan.</p>
+          <input class="search" id="lsearch" placeholder="Filter layers…">
+          <div class="list" id="layers"></div>
+        </div>
+        <h3>Line styles <span class="count" id="scount"></span></h3>
+        <p class="hint sub">Lines grouped by weight and colour. Hover to see them on the plan.</p>
+        <div class="list" id="styles"></div>
+        <h3>Crop and erase</h3>
+        <div class="status" id="cropst"></div>
+        <div class="status" id="erasest"></div>
+        <div class="row"><button class="link" id="clearcrop">Clear crop</button><button class="link" id="undoerase" title="Undo the last erase box (Cmd/Ctrl+Z)">Undo erase</button><button class="link" id="clearerase">Clear erases</button></div>
+        <div id="upwarn"></div>
+      </div>
+      <div class="foot">
+        <div id="apimsg"></div>
+        <div id="buildmsg"></div>
+        <button class="primary" id="go" style="width:100%; justify-content:center">Export DXF</button>
+      </div>
+    </aside>
+  </section>
+
+  <div class="overlay hidden" id="ov"><div class="sheet" role="dialog" aria-modal="true" aria-label="Export">
+  <button class="x" id="ovclose" title="Close (Esc)" aria-label="Close">×</button>
+  <section class="card hidden" id="s3">
+    <h2>Exporting DXF</h2>
+    <div class="row" style="justify-content:space-between"><span id="stepname">Starting…</span><span class="pct" id="pct">0%</span></div>
+    <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" id="barwrap"><div id="bar"></div></div>
+    <ol class="steps" id="steps"></ol>
+    <div id="err"></div>
+  </section>
+
+  <section class="card hidden result" id="s4">
+    <h2>Your DXF is ready</h2>
+    <div class="row"><a class="btn primary" id="dl">Download DXF</a><button id="back">Back to the plan</button></div>
+    <div id="summary"></div>
+    <p class="hint">This preview is drawn from the DXF itself, so it’s exactly what you’re getting.</p>
+    <img id="check" alt="Preview of the DXF">
+    <p class="hint" style="margin-top:12px"><strong>In Vectorworks:</strong></p>
+    <ul class="next hint">
+      <li><strong>Import:</strong> File › Import › Import DXF/DWG. Everything lands on one class, <code>VENUE_LINES</code>.</li>
+      <li><strong>Scale:</strong> it comes in at sheet size, not real size. Use Modify › Scale Objects › Symmetric by Distance across a room dimension you know.</li>
+    </ul>
+    <div class="verify" role="alert"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18.5A2 2 0 0 0 3.5 21.5h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v5"/><path d="M12 17.5h.01"/></svg><strong>VERIFY SCALE</strong></div>
+  </section>
+  </div></div>
+</main>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
